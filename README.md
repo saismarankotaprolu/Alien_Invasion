@@ -1,0 +1,50 @@
+# Alien Invasion
+
+A classic arcade-style alien invasion game built with Python and Pygame.
+
+## Requirements
+
+- Python 3.9 or newer
+
+## Local setup
+
+Create and activate a virtual environment:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+Install the project and development tools:
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+pre-commit install
+```
+
+Run the current application:
+
+```bash
+alien-invasion
+```
+
+Run the checks:
+
+```bash
+ruff check .
+ruff format --check .
+pytest
+```
+
+## Project structure
+
+```text
+.
+├── src/alien_invasion/  # Game source code
+├── tests/               # Automated tests
+├── main.py              # Convenience entry point for development
+└── pyproject.toml       # Project metadata and tool configuration
+```
+
+Gameplay and architecture will be defined in the project plan before implementation.

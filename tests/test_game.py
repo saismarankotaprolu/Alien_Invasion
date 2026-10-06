@@ -57,11 +57,42 @@ def test_game_processes_ship_movement_keys() -> None:
     game = AlienInvasion()
     game.handle_action("play")
 
-    game._handle_movement_key(pygame.K_d, True)
+    game._handle_gameplay_key(pygame.K_d, True)
     game._update(0.1)
 
     assert game.ship.rect.centerx > game.screen.get_rect().centerx
 
-    game._handle_movement_key(pygame.K_d, False)
+    game._handle_gameplay_key(pygame.K_d, False)
     assert not game.ship.movement["right"]
+    pygame.quit()
+
+
+def test_spacebar_fires_with_cooldown() -> None:
+    game = AlienInvasion()
+    game.handle_action("play")
+
+    game._handle_gameplay_key(pygame.K_SPACE, True)
+    assert len(game.bullets) == 1
+
+    game._update(0.1)
+    assert len(game.bullets) == 1
+
+    game._update(0.16)
+    assert len(game.bullets) == 2
+    pygame.quit()
+
+
+def test_active_bullet_limit_and_reset() -> None:
+    game = AlienInvasion()
+    game.handle_action("play")
+
+    for _ in range(5):
+        game.fire_cooldown_remaining = 0
+        game._try_fire_bullet()
+
+    assert len(game.bullets) == 3
+
+    game.handle_action("menu")
+    assert game.bullets == []
+    assert not game.firing
     pygame.quit()

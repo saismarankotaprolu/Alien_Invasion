@@ -47,6 +47,17 @@ SHIP_SETTINGS = {
     "bottom_margin": 30,
 }
 
+BULLET_SETTINGS = {
+    "width": 4,
+    "height": 18,
+    "speed": 700,
+    "reference_height": 800,
+    "color": (118, 224, 255),
+    "glow_color": (42, 155, 255),
+    "cooldown_ms": 250,
+    "max_active": 3,
+}
+
 COLORS = {
     "text": (225, 238, 255),
     "muted_text": (143, 170, 205),

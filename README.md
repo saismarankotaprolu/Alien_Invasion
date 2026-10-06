@@ -34,6 +34,7 @@ screen can change the window resolution and switch between three procedural
 space backgrounds. Press Escape from gameplay or settings to return to the menu.
 
 During gameplay, move the player ship with the Left/Right Arrow keys or `A`/`D`.
+Press or hold Space to fire up to three bullets at a time.
 
 Run the checks:
 

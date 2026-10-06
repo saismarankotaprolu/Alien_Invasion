@@ -4,9 +4,11 @@ from typing import Optional
 
 import pygame
 
+from alien_invasion.bullet import Bullet
 from alien_invasion.screens import create_space_background, draw_panel, draw_text
 from alien_invasion.settings import (
     BACKGROUND_THEMES,
+    BULLET_SETTINGS,
     COLORS,
     DEFAULT_USER_SETTINGS,
     FPS,
@@ -32,6 +34,9 @@ class AlienInvasion:
         self.screen = pygame.display.set_mode(self.user_settings["resolution"])
         self.clock = pygame.time.Clock()
         self.ship = Ship(self.screen.get_rect(), SHIP_SETTINGS)
+        self.bullets: list[Bullet] = []
+        self.firing = False
+        self.fire_cooldown_remaining = 0.0
         self.current_screen = "menu"
         self.running = True
         self.status_message = ""
@@ -67,23 +72,62 @@ class AlienInvasion:
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 self._handle_escape()
             elif event.type in (pygame.KEYDOWN, pygame.KEYUP):
-                self._handle_movement_key(event.key, event.type == pygame.KEYDOWN)
+                self._handle_gameplay_key(event.key, event.type == pygame.KEYDOWN)
             elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                 self._handle_click(event.pos)
 
-    def _handle_movement_key(self, key: int, active: bool) -> None:
-        """Update ship movement for Arrow and A/D controls."""
+    def _handle_gameplay_key(self, key: int, active: bool) -> None:
+        """Update ship movement and firing from keyboard controls."""
         if self.current_screen != "game":
             return
         if key in (pygame.K_LEFT, pygame.K_a):
             self.ship.set_movement("left", active)
         elif key in (pygame.K_RIGHT, pygame.K_d):
             self.ship.set_movement("right", active)
+        elif key == pygame.K_SPACE:
+            was_firing = self.firing
+            self.firing = active
+            if active and not was_firing:
+                self._try_fire_bullet()
 
     def _update(self, delta_time: float) -> None:
         """Update active gameplay objects."""
         if self.current_screen == "game":
             self.ship.update(delta_time)
+            self.fire_cooldown_remaining = max(
+                0.0,
+                self.fire_cooldown_remaining - delta_time,
+            )
+            if self.firing:
+                self._try_fire_bullet()
+
+            for bullet in self.bullets:
+                bullet.update(delta_time)
+            self.bullets = [
+                bullet for bullet in self.bullets if not bullet.is_off_screen()
+            ]
+
+    def _try_fire_bullet(self) -> None:
+        """Create a bullet when the cooldown and active-bullet limit allow it."""
+        if self.fire_cooldown_remaining > 0:
+            return
+        if len(self.bullets) >= BULLET_SETTINGS["max_active"]:
+            return
+
+        self.bullets.append(
+            Bullet(
+                self.ship.rect.midtop,
+                BULLET_SETTINGS,
+                self.screen.get_size(),
+            )
+        )
+        self.fire_cooldown_remaining = BULLET_SETTINGS["cooldown_ms"] / 1000
+
+    def _clear_bullets(self) -> None:
+        """Remove active projectiles and reset the firing state."""
+        self.bullets.clear()
+        self.firing = False
+        self.fire_cooldown_remaining = 0.0
 
     def _handle_escape(self) -> None:
         """Return to the menu, or exit when already on the menu."""
@@ -91,6 +135,7 @@ class AlienInvasion:
             self.running = False
         else:
             self.ship.stop()
+            self._clear_bullets()
             self.current_screen = "menu"
             self.pending_settings = copy_user_settings(self.user_settings)
             self.status_message = ""
@@ -123,12 +168,14 @@ class AlienInvasion:
     def _show_game(self) -> None:
         self.ship.stop()
         self.ship.center()
+        self._clear_bullets()
         self.current_screen = "game"
         self.status_message = ""
         self._build_interface()
 
     def _show_settings(self) -> None:
         self.ship.stop()
+        self._clear_bullets()
         self.current_screen = "settings"
         self.pending_settings = copy_user_settings(self.user_settings)
         self.status_message = ""
@@ -136,6 +183,7 @@ class AlienInvasion:
 
     def _show_menu(self) -> None:
         self.ship.stop()
+        self._clear_bullets()
         self.current_screen = "menu"
         self.pending_settings = copy_user_settings(self.user_settings)
         self.status_message = ""
@@ -166,6 +214,7 @@ class AlienInvasion:
         self.screen = pygame.display.set_mode(self.user_settings["resolution"])
         pygame.display.set_caption(TITLE)
         self.ship.resize(self.screen.get_rect())
+        self._clear_bullets()
         self.status_message = "Settings applied"
         self._build_interface()
 
@@ -343,11 +392,13 @@ class AlienInvasion:
         )
         draw_text(
             self.screen,
-            "Move with Arrow keys or A / D",
+            "Move with Arrow keys or A / D   •   SPACE to fire",
             self.fonts["body"],
             COLORS["muted_text"],
             (width // 2, round(height * 0.20)),
         )
+        for bullet in self.bullets:
+            bullet.draw(self.screen)
         self.ship.draw(self.screen)
         draw_text(
             self.screen,

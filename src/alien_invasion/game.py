@@ -11,10 +11,12 @@ from alien_invasion.settings import (
     DEFAULT_USER_SETTINGS,
     FPS,
     RESOLUTIONS,
+    SHIP_SETTINGS,
     TITLE,
     copy_user_settings,
     cycle_value,
 )
+from alien_invasion.ship import Ship
 from alien_invasion.ui import Button
 
 
@@ -29,6 +31,7 @@ class AlienInvasion:
         self.pending_settings = copy_user_settings(self.user_settings)
         self.screen = pygame.display.set_mode(self.user_settings["resolution"])
         self.clock = pygame.time.Clock()
+        self.ship = Ship(self.screen.get_rect(), SHIP_SETTINGS)
         self.current_screen = "menu"
         self.running = True
         self.status_message = ""
@@ -43,10 +46,11 @@ class AlienInvasion:
         frame_count = 0
         try:
             while self.running:
+                delta_time = min(self.clock.tick(FPS) / 1000, 0.05)
                 self._process_events()
+                self._update(delta_time)
                 self._draw_current_screen()
                 pygame.display.flip()
-                self.clock.tick(FPS)
 
                 frame_count += 1
                 if max_frames is not None and frame_count >= max_frames:
@@ -62,14 +66,31 @@ class AlienInvasion:
                 self.running = False
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 self._handle_escape()
+            elif event.type in (pygame.KEYDOWN, pygame.KEYUP):
+                self._handle_movement_key(event.key, event.type == pygame.KEYDOWN)
             elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                 self._handle_click(event.pos)
+
+    def _handle_movement_key(self, key: int, active: bool) -> None:
+        """Update ship movement for Arrow and A/D controls."""
+        if self.current_screen != "game":
+            return
+        if key in (pygame.K_LEFT, pygame.K_a):
+            self.ship.set_movement("left", active)
+        elif key in (pygame.K_RIGHT, pygame.K_d):
+            self.ship.set_movement("right", active)
+
+    def _update(self, delta_time: float) -> None:
+        """Update active gameplay objects."""
+        if self.current_screen == "game":
+            self.ship.update(delta_time)
 
     def _handle_escape(self) -> None:
         """Return to the menu, or exit when already on the menu."""
         if self.current_screen == "menu":
             self.running = False
         else:
+            self.ship.stop()
             self.current_screen = "menu"
             self.pending_settings = copy_user_settings(self.user_settings)
             self.status_message = ""
@@ -100,17 +121,21 @@ class AlienInvasion:
             action_handler()
 
     def _show_game(self) -> None:
+        self.ship.stop()
+        self.ship.center()
         self.current_screen = "game"
         self.status_message = ""
         self._build_interface()
 
     def _show_settings(self) -> None:
+        self.ship.stop()
         self.current_screen = "settings"
         self.pending_settings = copy_user_settings(self.user_settings)
         self.status_message = ""
         self._build_interface()
 
     def _show_menu(self) -> None:
+        self.ship.stop()
         self.current_screen = "menu"
         self.pending_settings = copy_user_settings(self.user_settings)
         self.status_message = ""
@@ -140,6 +165,7 @@ class AlienInvasion:
         self.user_settings = copy_user_settings(self.pending_settings)
         self.screen = pygame.display.set_mode(self.user_settings["resolution"])
         pygame.display.set_caption(TITLE)
+        self.ship.resize(self.screen.get_rect())
         self.status_message = "Settings applied"
         self._build_interface()
 
@@ -310,24 +336,25 @@ class AlienInvasion:
         width, height = self.screen.get_size()
         draw_text(
             self.screen,
-            "FLIGHT DECK READY",
+            "EARTH DEFENCE ACTIVE",
             self.fonts["heading"],
             COLORS["text"],
             (width // 2, round(height * 0.14)),
         )
         draw_text(
             self.screen,
-            "Phase 2 will deploy your ship",
+            "Move with Arrow keys or A / D",
             self.fonts["body"],
             COLORS["muted_text"],
             (width // 2, round(height * 0.20)),
         )
+        self.ship.draw(self.screen)
         draw_text(
             self.screen,
             "Press ESC to return to the main menu",
             self.fonts["small"],
             COLORS["muted_text"],
-            (width // 2, round(height * 0.92)),
+            (width // 2, round(height * 0.82)),
         )
 
     def _draw_buttons(self) -> None:

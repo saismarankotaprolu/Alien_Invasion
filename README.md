@@ -33,6 +33,8 @@ The main menu provides Play, Settings, and Quit options. The Phase 1 settings
 screen can change the window resolution and switch between three procedural
 space backgrounds. Press Escape from gameplay or settings to return to the menu.
 
+During gameplay, move the player ship with the Left/Right Arrow keys or `A`/`D`.
+
 Run the checks:
 
 ```bash

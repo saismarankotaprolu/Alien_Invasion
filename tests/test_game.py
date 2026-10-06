@@ -19,6 +19,7 @@ def test_menu_actions_change_screens() -> None:
 
     game.handle_action("play")
     assert game.current_screen == "game"
+    assert game.ship.rect.centerx == game.screen.get_rect().centerx
 
     game.handle_action("menu")
     game.handle_action("settings")
@@ -40,6 +41,7 @@ def test_apply_changes_resolution_and_background() -> None:
     assert game.screen.get_size() == (800, 600)
     assert game.user_settings["background"] == "Deep Space"
     assert game.status_message == "Settings applied"
+    assert game.ship.screen_rect == game.screen.get_rect()
 
     pygame.quit()
 
@@ -49,3 +51,17 @@ def test_run_can_stop_after_one_frame() -> None:
 
     assert game.run(max_frames=1) == 0
     assert not pygame.get_init()
+
+
+def test_game_processes_ship_movement_keys() -> None:
+    game = AlienInvasion()
+    game.handle_action("play")
+
+    game._handle_movement_key(pygame.K_d, True)
+    game._update(0.1)
+
+    assert game.ship.rect.centerx > game.screen.get_rect().centerx
+
+    game._handle_movement_key(pygame.K_d, False)
+    assert not game.ship.movement["right"]
+    pygame.quit()

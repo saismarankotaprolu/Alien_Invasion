@@ -39,6 +39,14 @@ DEFAULT_USER_SETTINGS = {
     "background": "Earth Orbit",
 }
 
+SHIP_SETTINGS = {
+    "width": 64,
+    "height": 72,
+    "speed": 420,
+    "reference_width": 1200,
+    "bottom_margin": 30,
+}
+
 COLORS = {
     "text": (225, 238, 255),
     "muted_text": (143, 170, 205),

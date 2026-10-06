@@ -58,6 +58,20 @@ BULLET_SETTINGS = {
     "max_active": 3,
 }
 
+ALIEN_SETTINGS = {
+    "width": 52,
+    "height": 38,
+    "horizontal_speed": 90,
+    "reference_width": 1200,
+    "drop_distance": 24,
+    "horizontal_gap": 22,
+    "vertical_gap": 20,
+    "top_margin": 72,
+    "side_margin": 52,
+    "rows": 4,
+    "columns": 12,
+}
+
 COLORS = {
     "text": (225, 238, 255),
     "muted_text": (143, 170, 205),

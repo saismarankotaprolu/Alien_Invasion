@@ -4,9 +4,12 @@ from typing import Optional
 
 import pygame
 
+from alien_invasion.alien import Alien
 from alien_invasion.bullet import Bullet
+from alien_invasion.fleet import create_fleet, update_fleet
 from alien_invasion.screens import create_space_background, draw_panel, draw_text
 from alien_invasion.settings import (
+    ALIEN_SETTINGS,
     BACKGROUND_THEMES,
     BULLET_SETTINGS,
     COLORS,
@@ -35,6 +38,8 @@ class AlienInvasion:
         self.clock = pygame.time.Clock()
         self.ship = Ship(self.screen.get_rect(), SHIP_SETTINGS)
         self.bullets: list[Bullet] = []
+        self.aliens: list[Alien] = []
+        self.fleet_direction = 1
         self.firing = False
         self.fire_cooldown_remaining = 0.0
         self.current_screen = "menu"
@@ -107,6 +112,63 @@ class AlienInvasion:
                 bullet for bullet in self.bullets if not bullet.is_off_screen()
             ]
 
+            self.fleet_direction = update_fleet(
+                self.aliens,
+                self.fleet_direction,
+                self.screen.get_rect(),
+                ALIEN_SETTINGS,
+                delta_time,
+            )
+            self._resolve_bullet_collisions()
+            self._check_alien_threats()
+
+    def _resolve_bullet_collisions(self) -> None:
+        """Remove bullets and aliens that collide with each other."""
+        hit_bullets: list[Bullet] = []
+        hit_aliens: list[Alien] = []
+
+        for bullet in self.bullets:
+            for alien in self.aliens:
+                if alien in hit_aliens:
+                    continue
+                if bullet.rect.colliderect(alien.rect):
+                    hit_bullets.append(bullet)
+                    hit_aliens.append(alien)
+                    break
+
+        if not hit_aliens:
+            return
+
+        self.bullets = [bullet for bullet in self.bullets if bullet not in hit_bullets]
+        self.aliens = [alien for alien in self.aliens if alien not in hit_aliens]
+
+        if not self.aliens:
+            self._start_new_fleet()
+
+    def _check_alien_threats(self) -> None:
+        """Reset the round if aliens hit the ship or reach Earth."""
+        ship_was_hit = any(
+            alien.rect.colliderect(self.ship.rect) for alien in self.aliens
+        )
+        earth_was_reached = any(
+            alien.rect.bottom >= self.screen.get_rect().bottom for alien in self.aliens
+        )
+        if ship_was_hit or earth_was_reached:
+            self._start_new_fleet()
+
+    def _start_new_fleet(self) -> None:
+        """Reset the play area and create a full, same-speed fleet."""
+        self._clear_bullets()
+        self.ship.stop()
+        self.ship.center()
+        self.fleet_direction = 1
+        self.aliens = create_fleet(self.screen.get_rect(), ALIEN_SETTINGS)
+
+    def _clear_aliens(self) -> None:
+        """Remove the current fleet and reset its direction."""
+        self.aliens.clear()
+        self.fleet_direction = 1
+
     def _try_fire_bullet(self) -> None:
         """Create a bullet when the cooldown and active-bullet limit allow it."""
         if self.fire_cooldown_remaining > 0:
@@ -136,6 +198,7 @@ class AlienInvasion:
         else:
             self.ship.stop()
             self._clear_bullets()
+            self._clear_aliens()
             self.current_screen = "menu"
             self.pending_settings = copy_user_settings(self.user_settings)
             self.status_message = ""
@@ -169,6 +232,7 @@ class AlienInvasion:
         self.ship.stop()
         self.ship.center()
         self._clear_bullets()
+        self._start_new_fleet()
         self.current_screen = "game"
         self.status_message = ""
         self._build_interface()
@@ -176,6 +240,7 @@ class AlienInvasion:
     def _show_settings(self) -> None:
         self.ship.stop()
         self._clear_bullets()
+        self._clear_aliens()
         self.current_screen = "settings"
         self.pending_settings = copy_user_settings(self.user_settings)
         self.status_message = ""
@@ -184,6 +249,7 @@ class AlienInvasion:
     def _show_menu(self) -> None:
         self.ship.stop()
         self._clear_bullets()
+        self._clear_aliens()
         self.current_screen = "menu"
         self.pending_settings = copy_user_settings(self.user_settings)
         self.status_message = ""
@@ -215,6 +281,7 @@ class AlienInvasion:
         pygame.display.set_caption(TITLE)
         self.ship.resize(self.screen.get_rect())
         self._clear_bullets()
+        self._clear_aliens()
         self.status_message = "Settings applied"
         self._build_interface()
 
@@ -385,28 +452,16 @@ class AlienInvasion:
         width, height = self.screen.get_size()
         draw_text(
             self.screen,
-            "EARTH DEFENCE ACTIVE",
-            self.fonts["heading"],
-            COLORS["text"],
-            (width // 2, round(height * 0.14)),
-        )
-        draw_text(
-            self.screen,
-            "Move with Arrow keys or A / D   •   SPACE to fire",
-            self.fonts["body"],
+            "A / D OR ARROWS: MOVE   •   SPACE: FIRE   •   ESC: MENU",
+            self.fonts["small"],
             COLORS["muted_text"],
-            (width // 2, round(height * 0.20)),
+            (width // 2, round(height * 0.035)),
         )
+        for alien in self.aliens:
+            alien.draw(self.screen)
         for bullet in self.bullets:
             bullet.draw(self.screen)
         self.ship.draw(self.screen)
-        draw_text(
-            self.screen,
-            "Press ESC to return to the main menu",
-            self.fonts["small"],
-            COLORS["muted_text"],
-            (width // 2, round(height * 0.82)),
-        )
 
     def _draw_buttons(self) -> None:
         mouse_position = pygame.mouse.get_pos()

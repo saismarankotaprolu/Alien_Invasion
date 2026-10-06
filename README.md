@@ -48,3 +48,7 @@ pytest
 ```
 
 Gameplay and architecture will be defined in the project plan before implementation.
+
+## Planning documents
+
+- [Phase 1: Game Foundation and Settings](docs/phase-1-foundation.md)

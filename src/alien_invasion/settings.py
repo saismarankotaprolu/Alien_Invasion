@@ -72,6 +72,16 @@ ALIEN_SETTINGS = {
     "columns": 12,
 }
 
+GAMEPLAY_SETTINGS = {
+    "starting_ships": 3,
+    "ship_recovery_ms": 750,
+}
+
+SCORING_SETTINGS = {
+    "alien_points": 50,
+    "fleet_bonus": 250,
+}
+
 COLORS = {
     "text": (225, 238, 255),
     "muted_text": (143, 170, 205),

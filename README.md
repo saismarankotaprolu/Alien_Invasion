@@ -36,6 +36,8 @@ space backgrounds. Press Escape from gameplay or settings to return to the menu.
 During gameplay, move the player ship with the Left/Right Arrow keys or `A`/`D`.
 Press or hold Space to fire up to three bullets at a time.
 Destroy the complete alien fleet before it reaches the ship or the bottom edge.
+Each alien awards points, clearing a fleet adds a bonus and advances the level,
+and the game ends after all three player ships are lost.
 
 Run the checks:
 

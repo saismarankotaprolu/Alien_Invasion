@@ -21,6 +21,7 @@ def test_menu_actions_change_screens() -> None:
     assert game.current_screen == "game"
     assert game.ship.rect.centerx == game.screen.get_rect().centerx
     assert game.aliens
+    assert game.game_stats["game_active"]
 
     game.handle_action("menu")
     game.handle_action("settings")
@@ -111,6 +112,8 @@ def test_bullet_collision_removes_one_alien_and_bullet() -> None:
 
     assert len(game.aliens) == original_alien_count - 1
     assert game.bullets == []
+    assert game.game_stats["score"] == 50
+    assert game.game_stats["high_score"] == 50
     pygame.quit()
 
 
@@ -127,10 +130,12 @@ def test_empty_fleet_is_recreated_after_final_hit() -> None:
     assert len(game.aliens) > 1
     assert game.bullets == []
     assert game.fleet_direction == 1
+    assert game.game_stats["score"] == 300
+    assert game.game_stats["level"] == 2
     pygame.quit()
 
 
-def test_alien_ship_collision_resets_fleet() -> None:
+def test_alien_ship_collision_removes_one_ship_then_resets_fleet() -> None:
     game = AlienInvasion()
     game.handle_action("play")
     original_fleet_size = len(game.aliens)
@@ -139,9 +144,14 @@ def test_alien_ship_collision_resets_fleet() -> None:
 
     game._check_alien_threats()
 
+    assert game.game_stats["ships_left"] == 2
+    assert game.aliens == []
+    assert game.recovery_remaining > 0
+    assert game.ship.rect.centerx == game.screen.get_rect().centerx
+
+    game._update(1.0)
     assert len(game.aliens) == original_fleet_size
     assert colliding_alien not in game.aliens
-    assert game.ship.rect.centerx == game.screen.get_rect().centerx
     pygame.quit()
 
 
@@ -153,7 +163,56 @@ def test_alien_reaching_earth_resets_fleet() -> None:
 
     game._check_alien_threats()
 
+    assert game.game_stats["ships_left"] == 2
+    assert game.aliens == []
+
+    game._update(1.0)
     assert invading_alien not in game.aliens
     assert len(game.aliens) == 48
     assert game.fleet_direction == 1
+    pygame.quit()
+
+
+def test_multiple_threat_checks_during_recovery_remove_only_one_ship() -> None:
+    game = AlienInvasion()
+    game.handle_action("play")
+
+    game._handle_ship_hit()
+    game._handle_ship_hit()
+
+    assert game.game_stats["ships_left"] == 2
+    pygame.quit()
+
+
+def test_final_ship_loss_ends_game() -> None:
+    game = AlienInvasion()
+    game.handle_action("play")
+    game.game_stats["ships_left"] = 1
+
+    game._handle_ship_hit()
+
+    assert not game.game_stats["game_active"]
+    assert game.game_stats["ships_left"] == 0
+    assert set(game.buttons) == {"play_again", "menu"}
+    pygame.quit()
+
+
+def test_play_again_resets_game_but_preserves_high_score() -> None:
+    game = AlienInvasion()
+    game.handle_action("play")
+    game.game_stats["score"] = 1_250
+    game.game_stats["high_score"] = 1_250
+    game.game_stats["level"] = 4
+    game.game_stats["ships_left"] = 0
+    game._end_game()
+
+    game.handle_action("play_again")
+
+    assert game.game_stats == {
+        "score": 0,
+        "high_score": 1_250,
+        "level": 1,
+        "ships_left": 3,
+        "game_active": True,
+    }
     pygame.quit()

@@ -7,6 +7,7 @@ import pygame
 from alien_invasion.alien import Alien
 from alien_invasion.bullet import Bullet
 from alien_invasion.fleet import create_fleet, update_fleet
+from alien_invasion.scoreboard import Scoreboard
 from alien_invasion.screens import create_space_background, draw_panel, draw_text
 from alien_invasion.settings import (
     ALIEN_SETTINGS,
@@ -15,7 +16,9 @@ from alien_invasion.settings import (
     COLORS,
     DEFAULT_USER_SETTINGS,
     FPS,
+    GAMEPLAY_SETTINGS,
     RESOLUTIONS,
+    SCORING_SETTINGS,
     SHIP_SETTINGS,
     TITLE,
     copy_user_settings,
@@ -42,6 +45,15 @@ class AlienInvasion:
         self.fleet_direction = 1
         self.firing = False
         self.fire_cooldown_remaining = 0.0
+        self.recovery_remaining = 0.0
+        self.game_stats = {
+            "score": 0,
+            "high_score": 0,
+            "level": 1,
+            "ships_left": GAMEPLAY_SETTINGS["starting_ships"],
+            "game_active": False,
+        }
+        self.scoreboard = Scoreboard(self.screen, self.game_stats)
         self.current_screen = "menu"
         self.running = True
         self.status_message = ""
@@ -83,7 +95,11 @@ class AlienInvasion:
 
     def _handle_gameplay_key(self, key: int, active: bool) -> None:
         """Update ship movement and firing from keyboard controls."""
-        if self.current_screen != "game":
+        if (
+            self.current_screen != "game"
+            or not self.game_stats["game_active"]
+            or self.recovery_remaining > 0
+        ):
             return
         if key in (pygame.K_LEFT, pygame.K_a):
             self.ship.set_movement("left", active)
@@ -97,30 +113,36 @@ class AlienInvasion:
 
     def _update(self, delta_time: float) -> None:
         """Update active gameplay objects."""
-        if self.current_screen == "game":
-            self.ship.update(delta_time)
-            self.fire_cooldown_remaining = max(
-                0.0,
-                self.fire_cooldown_remaining - delta_time,
-            )
-            if self.firing:
-                self._try_fire_bullet()
+        if self.current_screen != "game" or not self.game_stats["game_active"]:
+            return
 
-            for bullet in self.bullets:
-                bullet.update(delta_time)
-            self.bullets = [
-                bullet for bullet in self.bullets if not bullet.is_off_screen()
-            ]
+        if self.recovery_remaining > 0:
+            self.recovery_remaining = max(0.0, self.recovery_remaining - delta_time)
+            if self.recovery_remaining == 0:
+                self._start_new_fleet()
+            return
 
-            self.fleet_direction = update_fleet(
-                self.aliens,
-                self.fleet_direction,
-                self.screen.get_rect(),
-                ALIEN_SETTINGS,
-                delta_time,
-            )
-            self._resolve_bullet_collisions()
-            self._check_alien_threats()
+        self.ship.update(delta_time)
+        self.fire_cooldown_remaining = max(
+            0.0,
+            self.fire_cooldown_remaining - delta_time,
+        )
+        if self.firing:
+            self._try_fire_bullet()
+
+        for bullet in self.bullets:
+            bullet.update(delta_time)
+        self.bullets = [bullet for bullet in self.bullets if not bullet.is_off_screen()]
+
+        self.fleet_direction = update_fleet(
+            self.aliens,
+            self.fleet_direction,
+            self.screen.get_rect(),
+            ALIEN_SETTINGS,
+            delta_time,
+        )
+        self._resolve_bullet_collisions()
+        self._check_alien_threats()
 
     def _resolve_bullet_collisions(self) -> None:
         """Remove bullets and aliens that collide with each other."""
@@ -141,12 +163,26 @@ class AlienInvasion:
 
         self.bullets = [bullet for bullet in self.bullets if bullet not in hit_bullets]
         self.aliens = [alien for alien in self.aliens if alien not in hit_aliens]
+        level = self.game_stats["level"]
+        self._add_score(len(hit_aliens) * SCORING_SETTINGS["alien_points"] * level)
 
         if not self.aliens:
+            self._add_score(SCORING_SETTINGS["fleet_bonus"] * level)
+            self.game_stats["level"] += 1
             self._start_new_fleet()
 
+    def _add_score(self, points: int) -> None:
+        """Add points and update the session high score."""
+        self.game_stats["score"] += points
+        self.game_stats["high_score"] = max(
+            self.game_stats["high_score"],
+            self.game_stats["score"],
+        )
+
     def _check_alien_threats(self) -> None:
-        """Reset the round if aliens hit the ship or reach Earth."""
+        """Remove a ship if aliens hit the player or reach Earth."""
+        if self.recovery_remaining > 0 or not self.game_stats["game_active"]:
+            return
         ship_was_hit = any(
             alien.rect.colliderect(self.ship.rect) for alien in self.aliens
         )
@@ -154,7 +190,33 @@ class AlienInvasion:
             alien.rect.bottom >= self.screen.get_rect().bottom for alien in self.aliens
         )
         if ship_was_hit or earth_was_reached:
-            self._start_new_fleet()
+            self._handle_ship_hit()
+
+    def _handle_ship_hit(self) -> None:
+        """Remove one ship and begin recovery or end the game."""
+        if self.recovery_remaining > 0 or not self.game_stats["game_active"]:
+            return
+
+        self.game_stats["ships_left"] -= 1
+        self._clear_bullets()
+        self._clear_aliens()
+        self.ship.stop()
+        self.ship.center()
+
+        if self.game_stats["ships_left"] <= 0:
+            self._end_game()
+            return
+
+        self.recovery_remaining = GAMEPLAY_SETTINGS["ship_recovery_ms"] / 1000
+
+    def _end_game(self) -> None:
+        """Stop gameplay and show the game-over controls."""
+        self.game_stats["game_active"] = False
+        self.recovery_remaining = 0.0
+        self._clear_bullets()
+        self._clear_aliens()
+        self.ship.stop()
+        self._build_interface()
 
     def _start_new_fleet(self) -> None:
         """Reset the play area and create a full, same-speed fleet."""
@@ -171,6 +233,8 @@ class AlienInvasion:
 
     def _try_fire_bullet(self) -> None:
         """Create a bullet when the cooldown and active-bullet limit allow it."""
+        if not self.game_stats["game_active"] or self.recovery_remaining > 0:
+            return
         if self.fire_cooldown_remaining > 0:
             return
         if len(self.bullets) >= BULLET_SETTINGS["max_active"]:
@@ -199,6 +263,8 @@ class AlienInvasion:
             self.ship.stop()
             self._clear_bullets()
             self._clear_aliens()
+            self.game_stats["game_active"] = False
+            self.recovery_remaining = 0.0
             self.current_screen = "menu"
             self.pending_settings = copy_user_settings(self.user_settings)
             self.status_message = ""
@@ -215,6 +281,7 @@ class AlienInvasion:
         """Apply a named menu action."""
         actions = {
             "play": self._show_game,
+            "play_again": self._show_game,
             "settings": self._show_settings,
             "quit": self._quit,
             "menu": self._show_menu,
@@ -229,6 +296,15 @@ class AlienInvasion:
             action_handler()
 
     def _show_game(self) -> None:
+        self.game_stats.update(
+            {
+                "score": 0,
+                "level": 1,
+                "ships_left": GAMEPLAY_SETTINGS["starting_ships"],
+                "game_active": True,
+            }
+        )
+        self.recovery_remaining = 0.0
         self.ship.stop()
         self.ship.center()
         self._clear_bullets()
@@ -241,6 +317,8 @@ class AlienInvasion:
         self.ship.stop()
         self._clear_bullets()
         self._clear_aliens()
+        self.game_stats["game_active"] = False
+        self.recovery_remaining = 0.0
         self.current_screen = "settings"
         self.pending_settings = copy_user_settings(self.user_settings)
         self.status_message = ""
@@ -250,6 +328,8 @@ class AlienInvasion:
         self.ship.stop()
         self._clear_bullets()
         self._clear_aliens()
+        self.game_stats["game_active"] = False
+        self.recovery_remaining = 0.0
         self.current_screen = "menu"
         self.pending_settings = copy_user_settings(self.user_settings)
         self.status_message = ""
@@ -280,6 +360,7 @@ class AlienInvasion:
         self.screen = pygame.display.set_mode(self.user_settings["resolution"])
         pygame.display.set_caption(TITLE)
         self.ship.resize(self.screen.get_rect())
+        self.scoreboard.resize(self.screen)
         self._clear_bullets()
         self._clear_aliens()
         self.status_message = "Settings applied"
@@ -304,6 +385,8 @@ class AlienInvasion:
             self._build_menu_buttons(width, height, scale)
         elif self.current_screen == "settings":
             self._build_settings_buttons(width, height, scale)
+        elif self.current_screen == "game" and not self.game_stats["game_active"]:
+            self._build_game_over_buttons(width, height, scale)
 
     def _build_menu_buttons(self, width: int, height: int, scale: float) -> None:
         button_width = min(round(330 * scale), width - 80)
@@ -351,6 +434,19 @@ class AlienInvasion:
         ]:
             rect = pygame.Rect(0, 0, action_width, action_height)
             rect.center = (center_x + x_offset, action_y)
+            self.buttons[action] = Button(rect, label, self.fonts["button"])
+
+    def _build_game_over_buttons(self, width: int, height: int, scale: float) -> None:
+        button_width = min(round(280 * scale), width - 100)
+        button_height = round(56 * scale)
+        gap = round(18 * scale)
+        first_y = round(height * 0.63)
+
+        for index, (action, label) in enumerate(
+            [("play_again", "PLAY AGAIN"), ("menu", "MAIN MENU")]
+        ):
+            rect = pygame.Rect(0, 0, button_width, button_height)
+            rect.center = (width // 2, first_y + index * (button_height + gap))
             self.buttons[action] = Button(rect, label, self.fonts["button"])
 
     def _background(self) -> pygame.Surface:
@@ -449,19 +545,68 @@ class AlienInvasion:
         self._draw_buttons()
 
     def _draw_game_canvas(self) -> None:
+        if self.game_stats["game_active"]:
+            for alien in self.aliens:
+                alien.draw(self.screen)
+            for bullet in self.bullets:
+                bullet.draw(self.screen)
+            self.ship.draw(self.screen)
+
+        self.scoreboard.draw()
+        if self.recovery_remaining > 0:
+            self._draw_recovery_message()
+        elif not self.game_stats["game_active"]:
+            self._draw_game_over()
+
+    def _draw_recovery_message(self) -> None:
+        """Explain the short pause after the player loses a ship."""
         width, height = self.screen.get_size()
         draw_text(
             self.screen,
-            "A / D OR ARROWS: MOVE   •   SPACE: FIRE   •   ESC: MENU",
+            "SHIP LOST",
+            self.fonts["heading"],
+            COLORS["text"],
+            (width // 2, round(height * 0.47)),
+        )
+        draw_text(
+            self.screen,
+            f"{self.game_stats['ships_left']} ships remaining",
+            self.fonts["body"],
+            COLORS["accent"],
+            (width // 2, round(height * 0.53)),
+        )
+
+    def _draw_game_over(self) -> None:
+        """Draw final statistics and restart controls."""
+        width, height = self.screen.get_size()
+        scale = max(0.75, min(width / 1200, height / 800))
+        panel_width = min(round(600 * scale), width - 50)
+        panel = pygame.Rect(0, 0, panel_width, round(height * 0.72))
+        panel.center = (width // 2, height // 2)
+        draw_panel(self.screen, panel)
+
+        draw_text(
+            self.screen,
+            "GAME OVER",
+            self.fonts["title"],
+            COLORS["text"],
+            (width // 2, round(height * 0.27)),
+        )
+        draw_text(
+            self.screen,
+            f"FINAL SCORE  {Scoreboard.format_score(self.game_stats['score'])}",
+            self.fonts["body"],
+            COLORS["accent"],
+            (width // 2, round(height * 0.40)),
+        )
+        draw_text(
+            self.screen,
+            f"LEVEL REACHED  {self.game_stats['level']}",
             self.fonts["small"],
             COLORS["muted_text"],
-            (width // 2, round(height * 0.035)),
+            (width // 2, round(height * 0.47)),
         )
-        for alien in self.aliens:
-            alien.draw(self.screen)
-        for bullet in self.bullets:
-            bullet.draw(self.screen)
-        self.ship.draw(self.screen)
+        self._draw_buttons()
 
     def _draw_buttons(self) -> None:
         mouse_position = pygame.mouse.get_pos()

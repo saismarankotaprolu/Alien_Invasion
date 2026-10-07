@@ -1,5 +1,6 @@
 """Score and game-status display."""
 
+import math
 from typing import Any, Optional
 
 import pygame
@@ -20,7 +21,7 @@ class Scoreboard:
         self.font = pygame.font.Font(None, 30)
         self.small_font = pygame.font.Font(None, 24)
         self.images: list[tuple[pygame.Surface, pygame.Rect]] = []
-        self.last_values: Optional[tuple[int, int, int, int]] = None
+        self.last_values: Optional[tuple[Any, ...]] = None
         self.resize(screen)
 
     def resize(self, screen: pygame.Surface) -> None:
@@ -44,6 +45,12 @@ class Scoreboard:
         """Format a score with thousands separators."""
         return f"{score:,}"
 
+    @staticmethod
+    def format_time(seconds: int) -> str:
+        """Format a number of seconds as minutes and seconds."""
+        minutes, remaining_seconds = divmod(max(0, seconds), 60)
+        return f"{minutes:02d}:{remaining_seconds:02d}"
+
     def _prepare(self) -> None:
         """Render status labels only when their values change."""
         values = (
@@ -51,6 +58,7 @@ class Scoreboard:
             self.game_stats["high_score"],
             self.game_stats["level"],
             self.game_stats["ships_left"],
+            self._display_seconds(),
         )
         if values == self.last_values:
             return
@@ -82,7 +90,8 @@ class Scoreboard:
         )
 
         ships_rect = ships.get_rect(topleft=(margin, margin))
-        high_score_rect = high_score.get_rect(midtop=(width // 2, margin))
+        high_score_x = width // 2 if values[4] is None else round(width * 0.56)
+        high_score_rect = high_score.get_rect(midtop=(high_score_x, margin))
         score_rect = score.get_rect(topright=(width - margin, margin))
         level_rect = level.get_rect(
             topright=(width - margin, score_rect.bottom + round(3 * scale))
@@ -93,3 +102,18 @@ class Scoreboard:
             (score, score_rect),
             (level, level_rect),
         ]
+        if values[4] is not None:
+            timer = self.font.render(
+                f"TIME  {self.format_time(values[4])}",
+                True,
+                COLORS["accent"],
+            )
+            timer_rect = timer.get_rect(midtop=(round(width * 0.29), margin))
+            self.images.append((timer, timer_rect))
+
+    def _display_seconds(self) -> Optional[int]:
+        """Return timer seconds rounded up for a natural countdown display."""
+        time_remaining = self.game_stats.get("time_remaining")
+        if time_remaining is None:
+            return None
+        return math.ceil(time_remaining)

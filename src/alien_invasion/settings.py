@@ -73,13 +73,58 @@ ALIEN_SETTINGS = {
 }
 
 GAMEPLAY_SETTINGS = {
-    "starting_ships": 3,
     "ship_recovery_ms": 750,
 }
 
 SCORING_SETTINGS = {
     "alien_points": 50,
     "fleet_bonus": 250,
+}
+
+DIFFICULTIES = {
+    "Easy": {
+        "starting_ships": 5,
+        "alien_base_speed": 70,
+        "speed_growth": 1.08,
+        "alien_max_speed": 190,
+        "drop_distance": 18,
+        "score_multiplier": 0.8,
+        "description": "More ships and a gentler invasion",
+    },
+    "Normal": {
+        "starting_ships": 3,
+        "alien_base_speed": 90,
+        "speed_growth": 1.12,
+        "alien_max_speed": 260,
+        "drop_distance": 24,
+        "score_multiplier": 1.0,
+        "description": "The balanced Alien Invasion experience",
+    },
+    "Hard": {
+        "starting_ships": 2,
+        "alien_base_speed": 120,
+        "speed_growth": 1.16,
+        "alien_max_speed": 340,
+        "drop_distance": 30,
+        "score_multiplier": 1.5,
+        "description": "Faster fleets, fewer ships, higher scores",
+    },
+}
+
+GAME_MODES = {
+    "Classic": {
+        "time_limit_seconds": None,
+        "description": "Survive for as many fleets as possible",
+    },
+    "Time Attack": {
+        "time_limit_seconds": 120,
+        "description": "Score as much as possible in two minutes",
+    },
+}
+
+DEFAULT_GAME_OPTIONS = {
+    "mode": "Classic",
+    "difficulty": "Normal",
 }
 
 COLORS = {

@@ -10,6 +10,11 @@ def test_score_format_uses_thousands_separators() -> None:
     assert Scoreboard.format_score(1250) == "1,250"
 
 
+def test_timer_format_uses_minutes_and_seconds() -> None:
+    assert Scoreboard.format_time(120) == "02:00"
+    assert Scoreboard.format_time(9) == "00:09"
+
+
 def test_scoreboard_refreshes_when_statistics_change() -> None:
     pygame.init()
     screen = pygame.display.set_mode((800, 600))

@@ -39,6 +39,9 @@ Destroy the complete alien fleet before it reaches the ship or the bottom edge.
 Each alien awards points, clearing a fleet adds a bonus and advances the level,
 and the game ends after all three player ships are lost.
 
+Before starting, choose Easy, Normal, or Hard difficulty and either Classic or
+two-minute Time Attack mode. Later fleets become faster, with a safe speed cap.
+
 Run the checks:
 
 ```bash

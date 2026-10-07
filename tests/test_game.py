@@ -9,7 +9,7 @@ def test_game_starts_on_menu() -> None:
     game = AlienInvasion()
 
     assert game.current_screen == "menu"
-    assert set(game.buttons) == {"play", "settings", "quit"}
+    assert set(game.buttons) == {"game_options", "settings", "quit"}
 
     pygame.quit()
 
@@ -200,19 +200,17 @@ def test_final_ship_loss_ends_game() -> None:
 def test_play_again_resets_game_but_preserves_high_score() -> None:
     game = AlienInvasion()
     game.handle_action("play")
-    game.game_stats["score"] = 1_250
-    game.game_stats["high_score"] = 1_250
+    game._add_score(1_250)
     game.game_stats["level"] = 4
     game.game_stats["ships_left"] = 0
     game._end_game()
 
     game.handle_action("play_again")
 
-    assert game.game_stats == {
-        "score": 0,
-        "high_score": 1_250,
-        "level": 1,
-        "ships_left": 3,
-        "game_active": True,
-    }
+    assert game.game_stats["score"] == 0
+    assert game.game_stats["high_score"] == 1_250
+    assert game.game_stats["level"] == 1
+    assert game.game_stats["ships_left"] == 3
+    assert game.game_stats["game_active"]
+    assert game.game_stats["time_remaining"] is None
     pygame.quit()

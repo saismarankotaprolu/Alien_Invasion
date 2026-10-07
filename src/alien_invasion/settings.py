@@ -73,7 +73,8 @@ ALIEN_SETTINGS = {
 }
 
 GAMEPLAY_SETTINGS = {
-    "ship_recovery_ms": 750,
+    "explosion_ms": 650,
+    "ship_recovery_ms": 350,
 }
 
 SCORING_SETTINGS = {

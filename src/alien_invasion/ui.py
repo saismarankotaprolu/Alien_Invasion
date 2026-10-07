@@ -25,10 +25,17 @@ class Button:
         """Return whether a screen position is inside the button."""
         return self.rect.collidepoint(position)
 
-    def draw(self, surface: pygame.Surface, mouse_position: tuple[int, int]) -> None:
+    def draw(
+        self,
+        surface: pygame.Surface,
+        mouse_position: tuple[int, int],
+        *,
+        focused: bool = False,
+    ) -> None:
         """Draw the button, highlighting it when the pointer is over it."""
         hovered = self.contains(mouse_position)
-        fill_color = COLORS["button_hover"] if hovered else COLORS["button"]
+        highlighted = hovered or focused
+        fill_color = COLORS["button_hover"] if highlighted else COLORS["button"]
         border_radius = 8 if self.compact else 12
 
         pygame.draw.rect(surface, fill_color, self.rect, border_radius=border_radius)
@@ -36,7 +43,7 @@ class Button:
             surface,
             COLORS["button_border"],
             self.rect,
-            width=2,
+            width=3 if focused else 2,
             border_radius=border_radius,
         )
 

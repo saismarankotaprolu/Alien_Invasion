@@ -144,12 +144,15 @@ def test_alien_ship_collision_removes_one_ship_then_resets_fleet() -> None:
 
     game._check_alien_threats()
 
-    assert game.game_stats["ships_left"] == 2
+    assert game.game_stats["ships_left"] == 3
     assert game.aliens == []
-    assert game.recovery_remaining > 0
-    assert game.ship.rect.centerx == game.screen.get_rect().centerx
+    assert game.explosion is not None
 
-    game._update(1.0)
+    game._update(0.65)
+    assert game.game_stats["ships_left"] == 2
+    assert game.recovery_remaining > 0
+
+    game._update(0.35)
     assert len(game.aliens) == original_fleet_size
     assert colliding_alien not in game.aliens
     pygame.quit()
@@ -163,10 +166,12 @@ def test_alien_reaching_earth_resets_fleet() -> None:
 
     game._check_alien_threats()
 
-    assert game.game_stats["ships_left"] == 2
+    assert game.game_stats["ships_left"] == 3
     assert game.aliens == []
+    assert game.explosion is not None
 
-    game._update(1.0)
+    game._update(0.65)
+    game._update(0.35)
     assert invading_alien not in game.aliens
     assert len(game.aliens) == 48
     assert game.fleet_direction == 1
@@ -180,6 +185,11 @@ def test_multiple_threat_checks_during_recovery_remove_only_one_ship() -> None:
     game._handle_ship_hit()
     game._handle_ship_hit()
 
+    assert game.game_stats["ships_left"] == 3
+    game._update(0.65)
+    assert game.game_stats["ships_left"] == 2
+
+    game._handle_ship_hit()
     assert game.game_stats["ships_left"] == 2
     pygame.quit()
 
@@ -191,9 +201,59 @@ def test_final_ship_loss_ends_game() -> None:
 
     game._handle_ship_hit()
 
+    assert game.game_stats["game_active"]
+    assert game.explosion is not None
+
+    game._update(0.65)
     assert not game.game_stats["game_active"]
     assert game.game_stats["ships_left"] == 0
     assert set(game.buttons) == {"play_again", "menu"}
+    pygame.quit()
+
+
+def test_pause_freezes_gameplay_and_time_attack_timer() -> None:
+    game = AlienInvasion()
+    game.game_options["mode"] = "Time Attack"
+    game.handle_action("play")
+    ship_x = game.ship.x
+
+    game.ship.set_movement("right", True)
+    game._handle_escape()
+    game._update(1.0)
+
+    assert game.paused
+    assert game.ship.x == ship_x
+    assert game.game_stats["time_remaining"] == 120
+    assert set(game.buttons) == {"resume", "restart", "menu"}
+
+    game.handle_action("resume")
+    assert not game.paused
+    assert game.buttons == {}
+    pygame.quit()
+
+
+def test_weapon_charge_tracks_firing_cooldown() -> None:
+    game = AlienInvasion()
+    game.handle_action("play")
+    assert game._weapon_charge() == 1.0
+
+    game._try_fire_bullet()
+    assert game._weapon_charge() == 0.0
+
+    game.fire_cooldown_remaining /= 2
+    assert game._weapon_charge() == 0.5
+    pygame.quit()
+
+
+def test_keyboard_can_navigate_and_activate_menu_buttons() -> None:
+    game = AlienInvasion()
+    assert game.selected_button_index == 0
+
+    assert game._handle_ui_key(pygame.K_DOWN)
+    assert game.selected_button_index == 1
+
+    assert game._handle_ui_key(pygame.K_RETURN)
+    assert game.current_screen == "settings"
     pygame.quit()
 
 

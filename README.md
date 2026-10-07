@@ -39,8 +39,8 @@ wave becomes faster.
 Clone the repository, then create and activate a virtual environment:
 
 ```bash
-git clone <repository-url>
-cd alien-invasion-pygame
+git clone git@github.com:saismarankotaprolu/Alien_Invasion.git
+cd Alien_Invasion
 python3 -m venv .venv
 source .venv/bin/activate
 ```
